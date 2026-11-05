@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Artist</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1e1e1e">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Artist">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="homeScreen" class="home-screen">
+    <div class="home-header">
+      <h1>Мои проекты</h1>
+      <div class="home-header-actions">
+        <button data-icon="user" id="accountBtn" class="icon-btn" title="Аккаунт"></button>
+        <button data-icon="import" id="importProjectBtn" data-native-tap class="icon-btn" title="Импортировать бэкап"></button>
+        <button data-icon="plus" id="newProjectBtn" class="icon-btn" title="Новый проект"></button>
+      </div>
+    </div>
+    <input type="file" id="importProjectInput" accept="application/json,.json" style="display:none">
+    <div id="accountNote" class="account-note"></div>
+    <div id="homeStatus" class="home-status" style="display:none"></div>
+    <div id="projectsGrid" class="projects-grid"></div>
+    <div id="projectsEmpty" class="projects-empty" style="display:none">
+      Пока нет проектов — нажмите "+", чтобы создать первый
+    </div>
+  </div>
+
+  <div id="app" style="display:none">
+    <header id="toolbar">
+      <button data-icon="house" id="homeBtn" class="icon-btn" title="К проектам"></button>
+      <button data-icon="undo-2" id="undoBtn" class="icon-btn" title="Отменить"></button>
+      <button data-icon="redo-2" id="redoBtn" class="icon-btn" title="Повторить"></button>
+      <button data-icon="clipboard-paste" id="pasteBtn" class="icon-btn" title="Вставить"></button>
+
+      <div class="sep"></div>
+
+      <button data-icon="eraser" id="brushBtn" class="icon-btn tool" title="Переключить на ластик"></button>
+      <button data-icon="paint-bucket" id="fillBtn" class="icon-btn tool" title="Заливка"></button>
+      <button data-icon="lasso" id="lassoBtn" class="icon-btn tool" title="Лассо"></button>
+      <button data-icon="waypoints" id="polyBtn" class="icon-btn tool" title="Линия по точкам"></button>
+      <button data-icon="spline" id="guideBtn" class="icon-btn tool" title="Границы для заливки"></button>
+
+      <div class="sep"></div>
+
+      <input type="color" id="colorPicker" value="#111111" title="Цвет">
+
+      <div class="sep"></div>
+
+      <button data-icon="brush-cleaning" id="clearBtn" class="icon-btn" title="Очистить слой"></button>
+
+      <div class="sep"></div>
+      <button data-icon="scan" id="fitViewBtn" class="icon-btn" title="Вписать холст"></button>
+      <button data-icon="share" id="exportBtn" class="icon-btn" title="Экспорт"></button>
+      <div class="sep"></div>
+      <button data-icon="save" id="saveBtn" class="icon-btn" title="Сохранить в облако"></button>
+    </header>
+
+    <main id="canvasWrap">
+      <div id="layerStack"></div>
+
+      <div id="selectionBar" class="selection-bar">
+        <button data-icon="copy" id="copySelBtn" class="icon-btn small" title="Копировать"></button>
+        <button data-icon="scissors" id="cutSelBtn" class="icon-btn small" title="Вырезать"></button>
+        <button data-icon="flip-horizontal-2" id="flipHSelBtn" class="icon-btn small" title="Отразить слева направо"></button>
+        <button data-icon="flip-vertical-2" id="flipVSelBtn" class="icon-btn small" title="Отразить сверху вниз"></button>
+        <button data-icon="clapperboard" id="tweenBtn" class="icon-btn small" title="Твининг: А → Б"></button>
+        <button data-icon="box" id="makeObjectBtn" class="icon-btn small" title="Сделать объектом — движение по ключам"></button>
+        <button data-icon="squares-unite" id="selModeBtn" class="icon-btn small sel-mode-btn" title="Следующая обводка добавляет к выделению"></button>
+        <button data-icon="x" id="cancelSelBtn" class="icon-btn small" title="Отмена — вернуть как было"></button>
+        <button data-icon="check" id="deselectSelBtn" class="icon-btn small sel-done-btn" title="Готово"></button>
+      </div>
+
+      <div id="tweenBar" class="selection-bar tween-bar">
+        <button data-icon="minus" id="tweenFewerBtn" class="icon-btn small" title="Меньше кадров"></button>
+        <span id="tweenCount" class="tween-count" title="Кадров">8</span>
+        <button data-icon="plus" id="tweenMoreBtn" class="icon-btn small" title="Больше кадров"></button>
+        <button id="tweenEaseBtn" class="icon-btn small tween-ease-btn" title="Плавность движения">Плавно</button>
+        <button data-icon="route" id="tweenPathBtn" class="icon-btn small" title="Нарисовать путь движения"></button>
+        <button data-icon="play" id="tweenPlayBtn" class="icon-btn small" title="Проиграть движение"></button>
+        <button data-icon="x" id="tweenBarCancelBtn" class="icon-btn small" title="Назад к выделению"></button>
+        <button data-icon="check" id="tweenBarOkBtn" class="icon-btn small sel-done-btn" title="Создать кадры"></button>
+      </div>
+
+      <div id="pathBar" class="selection-bar tween-bar">
+        <span class="path-hint">Тап — точка пути</span>
+        <button data-icon="undo-2" id="pathUndoBtn" class="icon-btn small" title="Убрать последнюю точку"></button>
+        <button data-icon="x" id="pathCancelBtn" class="icon-btn small" title="Отмена — путь как был"></button>
+        <button data-icon="check" id="pathDoneBtn" class="icon-btn small sel-done-btn" title="Готово — применить путь"></button>
+      </div>
+
+      <!-- an object layer: the key under the playhead -->
+      <div id="objectBar" class="selection-bar tween-bar">
+        <span id="objectHint" class="path-hint"></span>
+        <button id="objectEaseBtn" class="icon-btn small tween-ease-btn" title="Как едет до следующего ключа">Плавно</button>
+        <button data-icon="trash-2" id="objectDelKeyBtn" class="icon-btn small" title="Удалить ключ"></button>
+      </div>
+
+      <div id="polyBar" class="selection-bar tween-bar">
+        <span id="polyHint" class="path-hint">Тап — точка</span>
+        <button id="polyModeBtn" class="icon-btn small tween-ease-btn" title="Скругление / уголки">Плавно</button>
+        <button data-icon="undo-2" id="polyUndoBtn" class="icon-btn small" title="Убрать последнюю точку"></button>
+        <button data-icon="x" id="polyCancelBtn" class="icon-btn small" title="Убрать все точки"></button>
+        <button data-icon="check" id="polyDoneBtn" class="icon-btn small sel-done-btn" title="Нарисовать линию"></button>
+      </div>
+
+      <div id="placeBar" class="place-bar">
+        <div class="place-bar-buttons">
+          <button data-icon="rotate-cw" id="placeRotateBtn" class="icon-btn small" title="Повернуть на 90°"></button>
+          <button data-icon="flip-horizontal-2" id="placeFlipHBtn" class="icon-btn small" title="Отразить слева направо"></button>
+          <button data-icon="flip-vertical-2" id="placeFlipVBtn" class="icon-btn small" title="Отразить сверху вниз"></button>
+          <button id="placeFillBtn" class="icon-btn small place-text-btn" title="Заполнить холст">Заполнить</button>
+          <button id="placeFitBtn" class="icon-btn small place-text-btn" title="Вписать целиком">Вписать</button>
+          <button data-icon="refresh-ccw" id="placeResetBtn" class="icon-btn small" title="Сбросить"></button>
+          <button data-icon="x" id="placeCancelBtn" class="icon-btn small" title="Отмена"></button>
+          <button data-icon="check" id="placeOkBtn" class="icon-btn small place-ok-btn" title="Импортировать"></button>
+        </div>
+      </div>
+    </main>
+
+    <div id="layersBackdrop"></div>
+
+    <aside id="layersPanel">
+      <div class="layers-panel-header">
+        <span>Слои</span>
+        <button data-icon="spline" id="guidesToggleBtn" class="icon-btn small active" title="Скрыть границы для заливки"></button>
+        <button data-icon="palette" id="bgButton" class="icon-btn small" title="Изменить фон"></button>
+        <button data-icon="image-plus" id="importImageBtn" data-native-tap class="icon-btn small" title="Вставить картинку"></button>
+        <button data-icon="video" id="importVideoBtn" data-native-tap class="icon-btn small" title="Слой из видео"></button>
+        <button data-icon="plus" id="addLayerBtn" class="icon-btn small" title="Добавить слой"></button>
+      </div>
+      <div id="layersList"></div>
+    </aside>
+
+    <footer id="timelineBar">
+      <!-- the brush size, right above the frames -->
+      <div class="brush-size-row">
+        <span id="sizeLabel">8</span>
+        <button data-icon="minus" id="sizeDownBtn" class="icon-btn small round" title="Тоньше на 1"></button>
+        <input type="range" id="sizeSlider" min="1" max="80" value="8" title="Толщина">
+        <button data-icon="plus" id="sizeUpBtn" class="icon-btn small round" title="Толще на 1"></button>
+      </div>
+      <div class="timeline-controls">
+        <button data-icon="play" id="playBtn" class="icon-btn small" title="Воспроизвести"></button>
+        <button data-icon="blend" id="onionBtn" class="icon-btn small" title="Калька (onion skin)"></button>
+        <button data-icon="palette" id="layerColorsBtn" class="icon-btn small" title="Цвета слоёв"></button>
+        <div class="sep"></div>
+        <button data-icon="plus" id="addFrameBtn" class="icon-btn small" title="Добавить кадр"></button>
+        <button data-icon="trash-2" id="removeFrameBtn" class="icon-btn small" title="Удалить кадр (на его месте останется пусто)"></button>
+        <button data-icon="chevrons-left" id="shiftLeftBtn" class="icon-btn small" title="Сдвинуть этот кадр и все после него на 1 влево"></button>
+        <button data-icon="chevrons-right" id="shiftRightBtn" class="icon-btn small" title="Сдвинуть этот кадр и все после него на 1 вправо"></button>
+        <button data-icon="route" id="editMotionBtn" class="icon-btn small motion-btn" title="Изменить движение" style="display:none"></button>
+        <button data-icon="refresh-ccw" id="regenMotionBtn" class="icon-btn small motion-btn" title="Пересоздать движение с новым видом (как на этом кадре)" style="display:none"></button>
+        <div class="sep"></div>
+        <button data-icon="layers" id="layersToggleBtn" class="icon-btn small" title="Слои"></button>
+        <span id="frameIndicator" class="frame-indicator">1/1</span>
+        <button data-icon="chevron-down" id="timelineToggleBtn" class="icon-btn small" title="Слоёв на дорожке: 3"></button>
+      </div>
+      <div id="tracksContainer" class="tracks-container">
+        <div id="trackLabels" class="track-labels">
+          <div class="track-label-spacer"></div>
+        </div>
+        <div id="trackScroll" class="track-scroll">
+          <div id="tracksInner" class="tracks-inner">
+            <div id="timeRuler" class="time-ruler"></div>
+            <div id="playheadLine" class="playhead-line"></div>
+          </div>
+        </div>
+      </div>
+    </footer>
+    <button data-icon="chevron-up" id="timelineShowBtn" class="icon-btn" title="Показать ленту кадров"></button>
+  </div>
+
+  <div id="newCanvasModal" class="modal-overlay">
+    <div class="modal-box">
+      <h2>Новый холст</h2>
+      <div id="canvasPresets" class="presets"></div>
+      <div class="custom-size">
+        <label>Ширина
+          <input type="number" id="canvasWidthInput" min="64" max="6000" value="1080">
+        </label>
+        <label>Высота
+          <input type="number" id="canvasHeightInput" min="64" max="6000" value="1920">
+        </label>
+      </div>
+      <button id="createCanvasBtn" class="primary-btn">Создать</button>
+      <button id="cancelCanvasBtn" class="secondary-btn">Отмена</button>
+    </div>
+  </div>
+
+  <div id="exportModal" class="modal-overlay">
+    <div class="modal-box">
+      <h2>Экспорт</h2>
+      <div id="exportChoiceView">
+        <div class="presets">
+          <button data-icon="image" id="exportPngBtn" data-native-tap class="preset-btn export-choice-btn">PNG — текущий кадр</button>
+          <button data-icon="image" id="exportPngClearBtn" data-native-tap class="preset-btn export-choice-btn">PNG — прозрачный фон</button>
+          <button data-icon="film" id="exportMp4Btn" data-native-tap class="preset-btn export-choice-btn">MP4 — вся анимация</button>
+          <button data-icon="package" id="exportBackupBtn" data-native-tap class="preset-btn export-choice-btn">Бэкап проекта (для восстановления)</button>
+        </div>
+        <button id="exportCancelBtn" class="secondary-btn">Отмена</button>
+      </div>
+      <div id="exportProgressView" style="display:none">
+        <div id="exportProgressLabel" class="export-progress-label">Кодирование…</div>
+        <div class="export-progress-track">
+          <div id="exportProgressBar" class="export-progress-bar"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="backgroundModal" class="modal-overlay">
+    <div class="modal-box">
+      <h2>Фон</h2>
+      <div class="custom-size">
+        <label>Цвет
+          <input type="color" id="bgColorInput" value="#ffffff">
+        </label>
+      </div>
+      <div class="presets">
+        <button data-icon="image" id="bgPickImageBtn" data-native-tap class="preset-btn export-choice-btn">Выбрать из галереи</button>
+        <button data-icon="rotate-ccw" id="bgResetBtn" class="preset-btn export-choice-btn">Сбросить (белый)</button>
+      </div>
+      <input type="file" id="bgImageFileInput" accept="image/*" style="display:none">
+      <button id="bgDoneBtn" class="primary-btn">Готово</button>
+    </div>
+  </div>
+
+  <input type="file" id="videoFileInput" accept="video/*" style="display:none">
+  <input type="file" id="imageFileInput" accept="image/*" style="display:none">
+
+  <div id="videoImportModal" class="modal-overlay">
+    <div class="modal-box">
+      <h2>Слой из видео</h2>
+      <div id="videoImportSettings">
+        <div id="videoImportDuration" class="video-import-note"></div>
+        <div class="custom-size">
+          <label>Начало, с
+            <input type="number" id="videoStartInput" min="0" step="0.1" value="0">
+          </label>
+          <label>Конец, с
+            <input type="number" id="videoEndInput" min="0" step="0.1" value="0">
+          </label>
+        </div>
+        <div id="videoRatePresets" class="presets"></div>
+        <label class="video-import-check">
+          <input type="checkbox" id="videoTraceInput" checked>
+          Для обводки: полупрозрачный, рисовать на слое сверху
+        </label>
+        <div id="videoImportEstimate" class="video-import-note"></div>
+        <button id="videoImportOkBtn" class="primary-btn">Импортировать</button>
+        <button id="videoImportCancelBtn" class="secondary-btn">Отмена</button>
+      </div>
+      <div id="videoImportProgress" style="display:none">
+        <div id="videoImportProgressLabel" class="export-progress-label">Импорт…</div>
+        <div class="export-progress-track">
+          <div id="videoImportProgressBar" class="export-progress-bar"></div>
+        </div>
+        <button id="videoImportStopBtn" class="secondary-btn">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // iOS bug: launched from the home screen with a translucent status bar,
+    // the page starts under the status bar but its viewport height leaves
+    // the status bar's height out (e.g. 797 of an 844pt screen). Nothing is
+    // drawn below that — the bottom strip only shows the page background.
+    // Flag it so the CSS can blend that strip in (html.ios-viewport-gap).
+    (function () {
+      if (!navigator.standalone) return;
+      function update() {
+        var full = innerWidth < innerHeight
+          ? Math.max(screen.width, screen.height)
+          : Math.min(screen.width, screen.height);
+        var gap = full - innerHeight;
+        document.documentElement.classList.toggle('ios-viewport-gap', gap > 0 && gap < 100);
+      }
+      update();
+      addEventListener('resize', update);
+      addEventListener('orientationchange', function () { setTimeout(update, 300); });
+    })();
+  </script>
+  <script type="module" src="js/main.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(() => {});
+      });
+    }
+  </script>
+</body>
+</html>

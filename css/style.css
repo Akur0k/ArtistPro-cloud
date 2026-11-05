@@ -1,0 +1,1675 @@
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: #2b2b2b;
+  font-family: system-ui, -apple-system, sans-serif;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* launched from the iOS home screen, the page draws under the status bar /
+   notch / home indicator (black-translucent + viewport-fit=cover) — keep the
+   UI inside the safe area. All insets are 0 in a regular browser tab. */
+#app {
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  inset: 0;
+  /* no bottom inset here — the timeline handles it (see #timelineBar) so
+     it can sit right at the bottom edge instead of above an empty strip */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
+}
+
+.home-screen {
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  inset: 0;
+  padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  color: #eee;
+  overflow-y: auto;
+}
+
+.home-header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: calc(16px + env(safe-area-inset-top)) 16px 16px;
+  position: sticky;
+  top: 0;
+  background: #2b2b2b;
+  z-index: 5;
+}
+
+.home-header h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.home-header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.projects-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 14px;
+  padding: 0 16px 24px;
+}
+
+.projects-empty {
+  padding: 40px 16px;
+  text-align: center;
+  color: #999;
+  font-size: 14px;
+}
+
+.project-card {
+  display: flex;
+  flex-direction: column;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #1e1e1e;
+  border: 1px solid #3a3a3a;
+  cursor: pointer;
+  position: relative;
+}
+
+.project-card .thumb-wrap {
+  aspect-ratio: 1 / 1;
+  background:
+    linear-gradient(45deg, #3a3a3a 25%, transparent 25%, transparent 75%, #3a3a3a 75%),
+    linear-gradient(45deg, #3a3a3a 25%, #2a2a2a 25%, #2a2a2a 75%, #3a3a3a 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 8px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.project-card img {
+  max-width: 100%;
+  max-height: 100%;
+  display: block;
+}
+
+.project-card .project-info {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.project-card .project-name {
+  font-size: 13px;
+  color: #eee;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.project-card .project-date {
+  font-size: 11px;
+  color: #888;
+}
+
+.project-card .project-where {
+  font-size: 11px;
+  color: #6fa86f;
+}
+
+.project-card .project-where.phone-only {
+  color: #c9a24a;
+}
+
+.home-status {
+  padding: 0 16px 12px;
+  color: #bbb;
+  font-size: 13px;
+}
+
+/* earlier versions (kept on the computer) */
+.project-card .project-history {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.project-card .project-history svg.icon {
+  width: 15px;
+  height: 15px;
+}
+
+.versions-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.versions-dialog {
+  width: min(360px, 100%);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 14px;
+  background: #1e1e1e;
+  border: 1px solid #3a3a3a;
+  color: #eee;
+}
+
+.versions-title {
+  font-size: 15px;
+}
+
+.versions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+}
+
+.versions-item,
+.versions-cancel {
+  padding: 10px 12px;
+  border: none;
+  border-radius: 10px;
+  background: #2c2c2c;
+  color: #eee;
+  font-size: 14px;
+  text-align: left;
+}
+
+.versions-cancel {
+  text-align: center;
+  background: #3a3a3a;
+}
+
+.versions-empty {
+  color: #999;
+  font-size: 13px;
+}
+
+.project-card .project-delete {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+#toolbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: #1e1e1e;
+  border-bottom: 1px solid #3a3a3a;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.sep {
+  width: 1px;
+  align-self: stretch;
+  background: #3a3a3a;
+  flex: 0 0 auto;
+}
+
+.icon-btn {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  border: none;
+  background: #333;
+  color: #eee;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.icon-btn:active {
+  background: #444;
+}
+
+.icon-btn:disabled {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.icon-btn.flash {
+  animation: iconBtnFlash 250ms ease;
+}
+
+@keyframes iconBtnFlash {
+  0% { background: #4a7dff; transform: scale(0.88); }
+  100% { background: #333; transform: scale(1); }
+}
+
+.icon-btn.active {
+  background: #4a7dff;
+  color: #fff;
+}
+
+#colorPicker {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: none;
+}
+
+/* brush size, over the frame strip */
+.brush-size-row {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px 0;
+}
+
+#sizeSlider {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+#sizeLabel {
+  color: #ccc;
+  font-size: 13px;
+  min-width: 24px;
+  text-align: right;
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.icon-btn.round {
+  width: 28px;
+  height: 28px;
+  border-radius: 14px;
+}
+
+#canvasWrap {
+  position: relative;
+  flex: 1 1 auto;
+  overflow: hidden;
+  background: #4a4a4a;
+  touch-action: none;
+}
+
+/* over the canvas area, not beside it: hiding it then changes nothing
+   underneath (the canvas area keeps its size, nothing shifts) */
+#timelineBar {
+  position: absolute;
+  left: env(safe-area-inset-left);
+  right: env(safe-area-inset-right);
+  bottom: 0;
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  background: #1e1e1e;
+  border-top: 1px solid #3a3a3a;
+  /* reaches down into the home-indicator area, keeping only a small gap
+     so frames don't sit right on the indicator (a horizontal swipe there
+     switches apps on iPhone) */
+  padding-bottom: max(4px, calc(env(safe-area-inset-bottom) - 20px));
+}
+
+#timelineBar.collapsed {
+  display: none;
+}
+
+/* no tracks: just the brush size and the buttons */
+#timelineBar.no-tracks .tracks-container,
+#timelineBar.no-tracks .track-scrollbar {
+  display: none;
+}
+
+.timeline-controls {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+}
+
+/* a phone: everything on one line, the last button (tracks) included */
+@media (max-width: 430px) {
+  .timeline-controls {
+    gap: 4px;
+    padding: 6px 6px;
+  }
+
+  .timeline-controls .frame-indicator {
+    margin-right: 0;
+  }
+}
+
+.frame-indicator {
+  margin-left: auto;
+  margin-right: 4px;
+  font-size: 12px;
+  color: #999;
+  font-variant-numeric: tabular-nums;
+}
+
+.tracks-container {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+}
+
+.track-labels {
+  flex: 0 0 auto;
+  width: 76px;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid #2a2a2a;
+}
+
+/* --tracks tracks show (3, 1 or none — the button on the right); more
+   scroll (in step with the tracks themselves) */
+.track-label-list {
+  flex: 0 1 auto;
+  max-height: calc(var(--tracks, 3) * 53px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: none;
+  scrollbar-width: none;
+}
+
+.track-label-list::-webkit-scrollbar {
+  display: none;
+}
+
+.track-label {
+  height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 2px 0 6px;
+  font-size: 11px;
+  color: #bbb;
+  border-bottom: 1px solid #2a2a2a;
+  cursor: pointer;
+}
+
+.track-label-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.track-eye {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: #bbb;
+}
+
+.track-eye svg.icon {
+  width: 15px;
+  height: 15px;
+}
+
+.track-label.hidden-layer .track-label-name,
+.track-label.hidden-layer .track-eye {
+  opacity: 0.45;
+}
+
+.track-label.active {
+  color: #fff;
+  background: #26314f;
+}
+
+.track-label-spacer {
+  height: 20px;
+  flex: 0 0 auto;
+  border-bottom: 1px solid #2a2a2a;
+}
+
+
+.track-scroll {
+  flex: 1 1 auto;
+  /* the ruler + --tracks tracks; more layers scroll */
+  max-height: calc(21px + var(--tracks, 3) * 53px);
+  /* scrolled by Timeline's own swipe handling (and the scrollbar below),
+     not the browser's — see Timeline._wireSwipe */
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: none;
+}
+
+/* under the tracks, lined up with them (past the labels column) */
+.track-scrollbar {
+  flex: 0 0 auto;
+  position: relative;
+  height: 18px;
+  margin: 2px 8px 0 84px;
+  touch-action: none;
+  cursor: pointer;
+}
+
+.track-scrollbar::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 6px;
+  height: 6px;
+  border-radius: 3px;
+  background: #2c2c2c;
+}
+
+.track-scrollbar-thumb {
+  position: absolute;
+  left: 0;
+  top: 3px;
+  height: 12px;
+  border-radius: 6px;
+  background: #6b6b6b;
+}
+
+.track-scrollbar-thumb.active {
+  background: #9a9a9a;
+}
+
+.track-scrollbar.idle .track-scrollbar-thumb {
+  opacity: 0.35;
+}
+
+.tracks-inner {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+}
+
+.time-ruler {
+  height: 20px;
+  flex: 0 0 auto;
+  /* stays at the top while the tracks scroll up and down */
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: #1e1e1e;
+  border-bottom: 1px solid #2a2a2a;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.tick-mark {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: flex-end;
+  font-size: 9px;
+  color: #777;
+  border-left: 1px solid #3a3a3a;
+  padding-left: 3px;
+  box-sizing: border-box;
+}
+
+.track-row {
+  height: 52px;
+  flex: 0 0 auto;
+  display: flex;
+  border-bottom: 1px solid #2a2a2a;
+}
+
+.tl-frame-cell {
+  position: relative;
+  flex: 0 0 auto;
+  height: 100%;
+  box-sizing: border-box;
+  border-right: 1px solid #161616;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.tl-frame-cell.active {
+  outline: 2px solid #4a7dff;
+  outline-offset: -2px;
+  z-index: 1;
+}
+
+.tl-frame-cell {
+  -webkit-touch-callout: none;
+}
+
+/* the selected frame handles its own touches (press-and-hold to drag,
+   or a manual pan of the timeline) — the browser mustn't scroll on it */
+.track-row.active-layer .tl-frame-cell.active {
+  touch-action: none;
+}
+
+.tl-frame-cell.dragging {
+  opacity: 0.9;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.6);
+  z-index: 10;
+}
+
+/* frames sliding aside while another one is dragged past them */
+.tl-frame-cell.shifting {
+  transition: transform 0.15s ease;
+}
+
+.tl-add-cell {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #666;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.tl-add-cell:active {
+  color: #aaa;
+}
+
+/* clip body: the frame's picture repeated along its length */
+.tl-strip {
+  position: absolute;
+  inset: 3px 1px;
+  border-radius: 4px;
+  background-color: #fff;
+  background-repeat: repeat-x;
+  background-position: left center;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+/* faint marks between the ticks a held frame spans */
+.tl-ticks {
+  position: absolute;
+  inset: 3px 1px;
+  border-radius: 4px;
+  background: repeating-linear-gradient(to right,
+    transparent 0, transparent calc(var(--tick, 40px) - 1px),
+    rgba(0, 0, 0, 0.28) calc(var(--tick, 40px) - 1px), rgba(0, 0, 0, 0.28) var(--tick, 40px));
+  pointer-events: none;
+}
+
+/* length badge (×3) on frames held longer than one tick */
+.tl-dur {
+  position: absolute;
+  left: 4px;
+  bottom: 5px;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font-size: 10px;
+  line-height: 14px;
+  pointer-events: none;
+}
+
+/* trim handle: a wide invisible touch zone with a bracket-shaped grip
+   drawn at the right edge */
+.tl-resize-handle {
+  display: none;
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: min(26px, 50%);
+  height: 100%;
+  cursor: ew-resize;
+  touch-action: none;
+  z-index: 2;
+}
+
+/* only the selected frame can be resized */
+.track-row.active-layer .tl-frame-cell.active .tl-resize-handle {
+  display: block;
+}
+
+.tl-resize-grip {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  right: 1px;
+  width: 9px;
+  border-radius: 0 4px 4px 0;
+  background: #f5c518;
+  box-shadow: -1px 0 3px rgba(0, 0, 0, 0.4);
+}
+
+/* grip lines */
+.tl-resize-grip::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 2px;
+  width: 5px;
+  height: 14px;
+  transform: translateY(-50%);
+  background: repeating-linear-gradient(to right, rgba(0, 0, 0, 0.55) 0 1px, transparent 1px 2px);
+}
+
+/* the selected frame: yellow, like a selected clip in an editor */
+.track-row.active-layer .tl-frame-cell.active {
+  outline: none;
+}
+
+.track-row.active-layer .tl-frame-cell.active .tl-strip {
+  box-shadow: inset 0 0 0 2px #f5c518;
+}
+
+.tl-frame-cell.resizing .tl-strip {
+  box-shadow: inset 0 0 0 2px #f5c518, 0 0 0 1px rgba(245, 197, 24, 0.4);
+}
+
+.tl-resize-tip {
+  position: fixed;
+  transform: translate(-50%, calc(-100% - 6px));
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: #f5c518;
+  color: #111;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 200;
+}
+
+/* the end of the animation: frames past it are dimmed (they don't play) */
+.tl-after-end {
+  position: absolute;
+  top: 21px;
+  bottom: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.tl-end-line {
+  position: absolute;
+  left: -1px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #ffb020;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.tl-end-line.auto {
+  background: rgba(255, 176, 32, 0.55);
+}
+
+/* its handle on the ruler (wide, for a finger) */
+.tl-end-knob {
+  position: absolute;
+  top: 0;
+  width: 28px;
+  height: 20px;
+  margin-left: -14px;
+  z-index: 4;
+  cursor: ew-resize;
+  touch-action: none;
+}
+
+.tl-end-knob::after {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 1px;
+  width: 14px;
+  height: 17px;
+  border-radius: 3px 3px 7px 7px;
+  background: #ffb020;
+}
+
+.tl-end-knob.auto::after {
+  background: #b98a32;
+}
+
+.playhead-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #ff5555;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.selection-bar {
+  position: absolute;
+  left: 50%;
+  /* above the timeline (--timeline-h: its height, 0 when hidden) */
+  bottom: calc(16px + var(--timeline-h, 0px));
+  transform: translateX(-50%);
+  display: none;
+  gap: 8px;
+  padding: 6px;
+  background: rgba(30, 30, 30, 0.9);
+  border-radius: 14px;
+  z-index: 60;
+}
+
+.selection-bar.show {
+  display: flex;
+}
+
+/* the drawing is painted onto one canvas the size of the canvas area
+   (js/Display.js); the selection outline / lifted piece on another above it */
+.display-canvas,
+.selection-overlay {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+}
+
+.selection-overlay {
+  z-index: 50;
+}
+
+/* an empty box the size of the camera that moves with the view — only the
+   video / picture placement preview sits in it */
+#layerStack {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform-origin: center center;
+  pointer-events: none;
+}
+
+#layerStack canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+#layersBackdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
+  z-index: 19;
+}
+
+#layersBackdrop.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+#layersPanel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 240px;
+  max-width: 78vw;
+  background: #1e1e1e;
+  border-left: 1px solid #3a3a3a;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.18s ease;
+  z-index: 20;
+  /* positioned against the whole screen, not #app's safe-area padding —
+     keep its contents clear of the notch / home indicator itself */
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+#layersPanel.open {
+  transform: translateX(0);
+}
+
+.layers-panel-header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: calc(10px + env(safe-area-inset-top)) 12px 10px;
+  color: #eee;
+  font-size: 14px;
+  border-bottom: 1px solid #3a3a3a;
+}
+
+.icon-btn.small {
+  width: 28px;
+  height: 28px;
+  font-size: 15px;
+}
+
+#layersList {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 6px;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 6px;
+}
+
+.layer-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border-radius: 8px;
+  background: #2a2a2a;
+  border: 1px solid transparent;
+}
+
+.layer-row.active {
+  border-color: #4a7dff;
+  background: #2f3a52;
+}
+
+.layer-row .thumb {
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+  background:
+    linear-gradient(45deg, #555 25%, transparent 25%, transparent 75%, #555 75%),
+    linear-gradient(45deg, #555 25%, #444 25%, #444 75%, #555 75%);
+  background-size: 10px 10px;
+  background-position: 0 0, 5px 5px;
+  flex: 0 0 auto;
+  object-fit: cover;
+}
+
+.layer-row .layer-main {
+  /* takes what's left on the first line (the colors wrap under it) */
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.layer-row .layer-name {
+  color: #eee;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.layer-row input[type="range"] {
+  width: 100%;
+  height: 14px;
+}
+
+
+.layer-row .layer-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 0 0 auto;
+}
+
+.layer-row .layer-controls button {
+  width: 22px;
+  height: 20px;
+  font-size: 11px;
+  line-height: 1;
+  border: none;
+  border-radius: 4px;
+  background: #3a3a3a;
+  color: #ddd;
+  cursor: pointer;
+}
+
+.layer-row .vis-btn.hidden-layer {
+  opacity: 0.35;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal-overlay.open {
+  display: flex;
+}
+
+.modal-box {
+  width: min(360px, 90vw);
+  background: #232323;
+  border-radius: 12px;
+  padding: 20px;
+  color: #eee;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.modal-box h2 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.preset-btn {
+  flex: 1 1 calc(50% - 8px);
+  padding: 8px 6px;
+  border: 1px solid #444;
+  border-radius: 8px;
+  background: #2c2c2c;
+  color: #ddd;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.preset-btn:active {
+  background: #383838;
+}
+
+.preset-btn.selected {
+  background: #4a7dff;
+  border-color: #4a7dff;
+  color: #fff;
+}
+
+.custom-size {
+  display: flex;
+  gap: 12px;
+}
+
+.custom-size label {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: #bbb;
+}
+
+.custom-size input {
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #444;
+  background: #1a1a1a;
+  color: #eee;
+  font-size: 14px;
+  width: 100%;
+}
+
+.primary-btn {
+  padding: 12px;
+  border: none;
+  border-radius: 8px;
+  background: #4a7dff;
+  color: #fff;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.primary-btn:active {
+  background: #3a6ae0;
+}
+
+.secondary-btn {
+  padding: 12px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #999;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.secondary-btn:active {
+  color: #ccc;
+}
+
+.export-choice-btn {
+  flex: 1 1 100%;
+  padding: 14px;
+  font-size: 14px;
+}
+
+.export-progress-label {
+  font-size: 13px;
+  color: #bbb;
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.export-progress-track {
+  height: 8px;
+  border-radius: 4px;
+  background: #1a1a1a;
+  overflow: hidden;
+}
+
+.export-progress-bar {
+  height: 100%;
+  width: 0%;
+  background: #4a7dff;
+  transition: width 0.15s ease-out;
+}
+
+.video-import-note {
+  font-size: 13px;
+  color: #bbb;
+  margin: 4px 0 10px;
+}
+
+.video-import-note.warn {
+  color: #f0b44c;
+}
+
+.video-import-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #ddd;
+  margin: 10px 0 4px;
+}
+
+#videoImportProgress .secondary-btn {
+  width: 100%;
+  margin-top: 12px;
+}
+
+#videoImportSettings {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#videoImportSettings .video-import-note,
+#videoImportSettings .video-import-check {
+  margin: 0;
+}
+
+/* video placement step: move / pinch / rotate the video before import */
+.place-bar {
+  position: absolute;
+  left: 50%;
+  bottom: calc(16px + var(--timeline-h, 0px));
+  transform: translateX(-50%);
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+  width: min(420px, calc(100% - 24px));
+  padding: 8px;
+  background: rgba(30, 30, 30, 0.92);
+  border-radius: 14px;
+  z-index: 60;
+}
+
+.place-bar.show {
+  display: flex;
+}
+
+.place-bar-buttons {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.place-bar .place-text-btn {
+  width: auto;
+  padding: 0 10px;
+  font-size: 13px;
+}
+
+.place-bar .place-ok-btn,
+.selection-bar .sel-done-btn {
+  background: #4a7dff;
+  color: #fff;
+}
+
+#app.placing #toolbar,
+#app.placing #timelineBar {
+  pointer-events: none;
+  opacity: 0.4;
+}
+
+/* iOS home-screen bug (see the inline script in index.html): a strip at the
+   bottom of the screen lies outside the page and only ever shows the page
+   background. Colour it like the timeline while editing so the timeline
+   reads as reaching the bottom edge, and drop the bottom insets — that
+   strip already keeps everything clear of the home indicator. */
+html.ios-viewport-gap:has(#homeScreen[style*="none"]),
+html.ios-viewport-gap:has(#homeScreen[style*="none"]) body {
+  background: #1e1e1e;
+}
+
+html.ios-viewport-gap #timelineBar,
+html.ios-viewport-gap #layersPanel,
+html.ios-viewport-gap .home-screen {
+  padding-bottom: 0;
+}
+
+/* every tap on a button is its own click — iOS otherwise may take two
+   quick taps (undo, undo) as a double-tap gesture and drop one */
+button {
+  touch-action: manipulation;
+}
+
+/* brush size preview: the line's actual on-screen width */
+.brush-ring {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.85);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.9), inset 0 0 0 1px rgba(255, 255, 255, 0.9);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 55;
+}
+
+.brush-ring.show {
+  opacity: 1;
+  transition: none;
+}
+
+.brush-ring.eraser {
+  border-style: dashed;
+}
+
+/* Lucide line icons (js/Icons.js) — sized per button, colored by the text */
+svg.icon {
+  display: block;
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  pointer-events: none;
+}
+
+.icon-btn.small svg.icon {
+  width: 16px;
+  height: 16px;
+}
+
+.layer-row .layer-controls button,
+.project-card .project-delete,
+.tl-add-cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.layer-row .layer-controls button svg.icon {
+  width: 14px;
+  height: 14px;
+}
+
+.project-card .project-copy {
+  position: absolute;
+  top: 6px;
+  right: 38px;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.project-card .project-copy svg.icon,
+.project-card .project-delete svg.icon {
+  width: 14px;
+  height: 14px;
+}
+
+.tl-add-cell svg.icon {
+  width: 18px;
+  height: 18px;
+}
+
+/* a text button with an icon in front of the label */
+.export-choice-btn[data-icon] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.export-choice-btn[data-icon] svg.icon {
+  width: 18px;
+  height: 18px;
+}
+
+/* lasso draft in "cut out" mode */
+.selection-bar .sel-mode-btn.sub {
+  background: #e11d48;
+  color: #fff;
+}
+
+/* tween set-up bar (replaces the selection bar while it's open) */
+.tween-bar {
+  align-items: center;
+}
+
+.tween-count {
+  min-width: 22px;
+  color: #eee;
+  font-size: 14px;
+  text-align: center;
+}
+
+.tween-bar .tween-ease-btn {
+  width: auto;
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+.path-hint {
+  color: #bbb;
+  font-size: 12px;
+  padding: 0 4px 0 6px;
+  white-space: nowrap;
+}
+
+/* the border tool while erasing borders */
+.icon-btn.erase {
+  background: #e11d48;
+  color: #fff;
+}
+
+/* brings the frame strip back once it's been hidden */
+#timelineShowBtn {
+  position: absolute;
+  right: 12px;
+  bottom: max(12px, calc(env(safe-area-inset-bottom) - 12px));
+  z-index: 70;
+  display: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 20px;
+  background: rgba(30, 30, 30, 0.9);
+  border: 1px solid #444;
+}
+
+#timelineBar.collapsed ~ #timelineShowBtn {
+  display: flex;
+}
+
+/* a layer row's drag handle (layers panel) */
+.layer-grip {
+  flex: 0 0 auto;
+  align-self: stretch;
+  width: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #888;
+  touch-action: none;
+  cursor: grab;
+}
+
+.layer-grip svg.icon {
+  width: 16px;
+  height: 16px;
+}
+
+.layer-row {
+  transition: transform 120ms ease;
+}
+
+.layer-row.dragging {
+  transition: none;
+  position: relative;
+  z-index: 2;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+}
+
+/* long-press eyedropper: the picked colour, above the finger */
+.pick-badge {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 4px 12px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  z-index: 56;
+}
+
+.pick-badge.show {
+  opacity: 1;
+}
+
+/* save button: a dot while there are changes not on the computer yet */
+#saveBtn {
+  position: relative;
+}
+
+#saveBtn.unsaved::after {
+  content: '';
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #f5c518;
+}
+
+#saveBtn.busy svg.icon {
+  animation: save-spin 0.8s linear infinite;
+}
+
+@keyframes save-spin {
+  to { transform: rotate(360deg); }
+}
+
+.save-toast {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 64px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 80;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: rgba(30, 30, 30, 0.95);
+  border: 1px solid #444;
+  color: #eee;
+  font-size: 14px;
+  max-width: calc(100vw - 32px);
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.save-toast.show {
+  opacity: 1;
+}
+
+.save-toast.ok {
+  border-color: #3f7f3f;
+}
+
+.save-toast.warn {
+  border-color: #a07a2a;
+}
+
+/* a layer's color (shown on screen only) */
+.layer-row .layer-tint {
+  flex: 1 0 100%;
+  box-sizing: border-box;
+  /* under the thumbnail and name, past the grip */
+  padding-left: 28px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #999;
+  font-size: 11px;
+}
+
+.layer-row .layer-tint.on {
+  color: #eee;
+}
+
+.layer-row .layer-tint input[type="color"] {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid #555;
+  border-radius: 5px;
+  background: none;
+}
+
+.layer-row .layer-tint input[type="color"].chosen,
+.layer-row .layer-tint-preset.chosen {
+  outline: 2px solid #fff;
+  outline-offset: 1px;
+}
+
+.layer-row .layer-tint-preset {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+}
+
+.layer-row .layer-tint-off {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 5px;
+  background: #3a3a3a;
+  color: #ddd;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.layer-row .layer-tint-off svg.icon {
+  width: 13px;
+  height: 13px;
+}
+
+/* frames made by a movement (it can be changed again): a stripe under them */
+.tl-frame-cell.tl-motion::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 4px;
+  background: #a855f7;
+  pointer-events: none;
+}
+
+.icon-btn.motion-btn {
+  background: #7e3fd0;
+  color: #fff;
+}
+
+/* an object layer's track: its span and a diamond per key */
+.tl-object-track {
+  position: relative;
+  height: 100%;
+  flex: 0 0 auto;
+}
+
+.tl-object-span {
+  position: absolute;
+  top: 14px;
+  bottom: 14px;
+  border-radius: 6px;
+  background: rgba(168, 85, 247, 0.35);
+  border: 1px solid rgba(168, 85, 247, 0.8);
+  box-sizing: border-box;
+}
+
+.tl-key {
+  position: absolute;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  transform: rotate(45deg);
+  border-radius: 2px;
+  background: #e9d5ff;
+  border: 2px solid #7e3fd0;
+  box-sizing: border-box;
+  touch-action: none;
+  cursor: grab;
+  z-index: 1;
+}
+
+/* a wider target for a finger */
+.tl-key::before {
+  content: '';
+  position: absolute;
+  inset: -10px;
+}
+
+.tl-key.current {
+  background: #fbbf24;
+  border-color: #fff;
+}
+
+.tl-key.dragging {
+  background: #fff;
+  z-index: 5;
+}
+
+/* before a layer's start: empty */
+.tl-lead {
+  flex: 0 0 auto;
+  height: 100%;
+}
+
+/* an empty stretch between frames */
+.tl-frame-cell.tl-gap {
+  background: transparent;
+  border-right-color: transparent;
+}
+
+.tl-frame-cell.tl-gap .tl-strip,
+.tl-frame-cell.tl-gap .tl-dur {
+  display: none;
+}
+
+.tl-frame-cell.tl-gap .tl-ticks {
+  opacity: 0.35;
+}
+
+
+/* the cloud account (home screen) */
+.account-note {
+  padding: 0 16px 12px;
+  color: #999;
+  font-size: 13px;
+}
+
+#accountBtn.signed-in {
+  background: #2f6fed;
+  color: #fff;
+}
+
+.account-dialog {
+  overflow-y: auto;
+}
+
+.account-email {
+  font-size: 15px;
+  color: #fff;
+  word-break: break-all;
+}
+
+.account-or {
+  color: #999;
+  font-size: 13px;
+  text-align: center;
+}
+
+.account-input {
+  padding: 10px 12px;
+  border: 1px solid #3a3a3a;
+  border-radius: 10px;
+  background: #2c2c2c;
+  color: #eee;
+  font-size: 16px; /* under 16px iOS zooms the page in on focus */
+}
+
+.versions-item.account-main {
+  background: #2f6fed;
+  color: #fff;
+  text-align: center;
+}
+
+.versions-item:disabled,
+.versions-cancel:disabled {
+  opacity: 0.5;
+}
+
+.account-message {
+  min-height: 1em;
+  color: #f0b45a;
+  font-size: 13px;
+}
+
+.account-dialog .versions-item {
+  text-align: center;
+}
