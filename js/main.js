@@ -592,6 +592,7 @@ async function main() {
   let warp = null;
   let warpGrab = null; // one finger: { id, kind: 'corner' | 'edge' | 'move', index, startDoc, startQuad }
   let warpTwo = null; // two fingers: { ids, a, b (doc points at the start), startQuad }
+  let warpDrawPending = 0; // a redraw of it asked for the next screen refresh
 
   let cachedCenter = { x: 0, y: 0 };
 
@@ -603,6 +604,11 @@ async function main() {
 
   // the selection overlay is a plain picture of the current view
   function redrawOverlay() {
+    // the transform frame: once a screen refresh, not on every finger move
+    if (warp) {
+      drawWarpSoon();
+      return;
+    }
     drawSelectionOutline();
     if (mode === 'lasso' && lassoPoints.length) drawLassoInProgress();
   }
@@ -2802,6 +2808,7 @@ async function main() {
 
   function endWarp() {
     warp = null;
+    overlay.dropWarped();
     warpGrab = null;
     warpTwo = null;
     if (mode === 'warp' || mode === 'warpTwo') mode = activePointers.size ? 'picked' : 'idle';
@@ -2865,7 +2872,6 @@ async function main() {
   }
 
   // at most once a screen refresh — a phone sends touch moves faster
-  let warpDrawPending = 0;
   function drawWarpSoon() {
     if (warpDrawPending) return;
     warpDrawPending = requestAnimationFrame(() => {

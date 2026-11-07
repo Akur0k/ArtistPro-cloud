@@ -122,42 +122,66 @@ export class SelectionOverlay {
     ctx.restore();
   }
 
-  // the piece pulled onto a four-cornered shape (quad: TL, TR, BR, BL) —
-  // from a copy no bigger than it shows on screen: a big piece redrawn at
-  // full size on every move is what makes dragging the frame stutter
+  // the piece pulled onto a four-cornered shape (quad: TL, TR, BR, BL).
+  // Made once per shape into a picture of its own, about as sharp as the
+  // screen shows it (steps of ×2), and only that picture is drawn here —
+  // moving / zooming the view never rebuilds it, only a new shape does
   drawFragmentWarped(fragCanvas, quad, alpha = 1) {
     const ctx = this.ctx;
     const t = ctx.getTransform();
     const k = Math.sqrt(Math.abs(t.a * t.d - t.b * t.c)); // document unit → device pixels
-    let side = 0;
-    for (let i = 0; i < 4; i++) {
-      const p = quad[i], q = quad[(i + 1) % 4];
-      side = Math.max(side, Math.hypot(q.x - p.x, q.y - p.y) * k);
+    const xs = quad.map(p => p.x), ys = quad.map(p => p.y);
+    const bx = Math.min(...xs), by = Math.min(...ys);
+    const bw = Math.max(...xs) - bx || 1, bh = Math.max(...ys) - by || 1;
+    const d = Math.min(2 ** Math.ceil(Math.log2(k)), 2048 / Math.max(bw, bh));
+    const src = this._tintedCopy(fragCanvas);
+    const key = `${quad.map(p => `${p.x},${p.y}`).join(';')}|${d}`;
+    let w = this._warped;
+    if (!w || w.src !== src || w.key !== key) {
+      const c = w?.canvas ?? document.createElement('canvas');
+      c.width = Math.max(1, Math.ceil(bw * d));
+      c.height = Math.max(1, Math.ceil(bh * d));
+      const cx = c.getContext('2d');
+      cx.setTransform(d, 0, 0, d, -bx * d, -by * d);
+      let side = 0;
+      for (let i = 0; i < 4; i++) side = Math.max(side, Math.hypot(xs[(i + 1) % 4] - xs[i], ys[(i + 1) % 4] - ys[i]) * d);
+      drawWarped(cx, this._previewCopy(src, side), quad);
+      w = this._warped = { src, key, canvas: c };
     }
     ctx.save();
     ctx.globalAlpha = alpha;
-    drawWarped(ctx, this._previewCopy(this._tintedCopy(fragCanvas), side), quad);
+    ctx.drawImage(w.canvas, bx, by, w.canvas.width / d, w.canvas.height / d);
     ctx.restore();
   }
 
-  // canvas shrunk so its longer side is about `side` device pixels (in
-  // steps of ×2, so a drag doesn't remake it on every move); never enlarged
+  // the transform is over: its picture can go
+  dropWarped() {
+    this._warped = null;
+  }
+
+  // the canvas at about `side` device pixels on its longer side: one of
+  // its halvings (½, ¼, …), each made once from the one before and kept —
+  // zooming back and forth past a step never makes a new one again
   _previewCopy(canvas, side) {
-    const full = Math.max(canvas.width, canvas.height);
-    let target = full;
-    while (target / 2 >= side && target / 2 >= 64) target /= 2;
-    if (target >= full) return canvas;
-    const hit = this._small?.get(canvas);
-    if (hit?.target === target) return hit.canvas;
-    const c = document.createElement('canvas');
-    const r = target / full;
-    c.width = Math.max(1, Math.round(canvas.width * r));
-    c.height = Math.max(1, Math.round(canvas.height * r));
-    const cx = c.getContext('2d');
-    cx.imageSmoothingQuality = 'high';
-    cx.drawImage(canvas, 0, 0, c.width, c.height);
-    (this._small ??= new WeakMap()).set(canvas, { target, canvas: c });
-    return c;
+    let levels = this._small?.get(canvas);
+    if (!levels) {
+      levels = [canvas];
+      (this._small ??= new WeakMap()).set(canvas, levels);
+    }
+    let i = 0;
+    for (;;) {
+      const cur = levels[i];
+      const longer = Math.max(cur.width, cur.height);
+      if (longer / 2 < side || longer / 2 < 64) return cur;
+      if (!levels[i + 1]) {
+        const c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round(cur.width / 2));
+        c.height = Math.max(1, Math.round(cur.height / 2));
+        c.getContext('2d').drawImage(cur, 0, 0, c.width, c.height);
+        levels.push(c);
+      }
+      i++;
+    }
   }
 
   // the piece in its layer's color (made once per piece and color)
