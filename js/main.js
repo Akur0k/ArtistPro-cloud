@@ -2864,13 +2864,23 @@ async function main() {
     warpGrab = { id: e.pointerId, kind, index, startDoc: docPt, startQuad: warp.map(p => ({ ...p })) };
   }
 
+  // at most once a screen refresh — a phone sends touch moves faster
+  let warpDrawPending = 0;
+  function drawWarpSoon() {
+    if (warpDrawPending) return;
+    warpDrawPending = requestAnimationFrame(() => {
+      warpDrawPending = 0;
+      if (warp) drawSelectionOutline();
+    });
+  }
+
   function moveWarpGrab(docPt) {
     const g = warpGrab;
     const dx = docPt.x - g.startDoc.x, dy = docPt.y - g.startDoc.y;
     const moved = i => (g.kind === 'move' || (g.kind === 'corner' && i === g.index) ||
       (g.kind === 'edge' && (i === g.index || i === (g.index + 1) % 4)));
     warp = g.startQuad.map((p, i) => (moved(i) ? { x: p.x + dx, y: p.y + dy } : { ...p }));
-    drawSelectionOutline();
+    drawWarpSoon();
   }
 
   // two fingers on the frame: move / turn / scale it whole, its shape kept
@@ -2896,7 +2906,7 @@ async function main() {
       const dx = p.x - c0.x, dy = p.y - c0.y;
       return { x: c1.x + dx * cos - dy * sin, y: c1.y + dx * sin + dy * cos };
     });
-    drawSelectionOutline();
+    drawWarpSoon();
   }
 
   // the piece on the frame's shape, the frame, its eight handles

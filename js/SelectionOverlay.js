@@ -122,13 +122,42 @@ export class SelectionOverlay {
     ctx.restore();
   }
 
-  // the piece pulled onto a four-cornered shape (quad: TL, TR, BR, BL)
+  // the piece pulled onto a four-cornered shape (quad: TL, TR, BR, BL) —
+  // from a copy no bigger than it shows on screen: a big piece redrawn at
+  // full size on every move is what makes dragging the frame stutter
   drawFragmentWarped(fragCanvas, quad, alpha = 1) {
     const ctx = this.ctx;
+    const t = ctx.getTransform();
+    const k = Math.sqrt(Math.abs(t.a * t.d - t.b * t.c)); // document unit → device pixels
+    let side = 0;
+    for (let i = 0; i < 4; i++) {
+      const p = quad[i], q = quad[(i + 1) % 4];
+      side = Math.max(side, Math.hypot(q.x - p.x, q.y - p.y) * k);
+    }
     ctx.save();
     ctx.globalAlpha = alpha;
-    drawWarped(ctx, this._tintedCopy(fragCanvas), quad);
+    drawWarped(ctx, this._previewCopy(this._tintedCopy(fragCanvas), side), quad);
     ctx.restore();
+  }
+
+  // canvas shrunk so its longer side is about `side` device pixels (in
+  // steps of ×2, so a drag doesn't remake it on every move); never enlarged
+  _previewCopy(canvas, side) {
+    const full = Math.max(canvas.width, canvas.height);
+    let target = full;
+    while (target / 2 >= side && target / 2 >= 64) target /= 2;
+    if (target >= full) return canvas;
+    const hit = this._small?.get(canvas);
+    if (hit?.target === target) return hit.canvas;
+    const c = document.createElement('canvas');
+    const r = target / full;
+    c.width = Math.max(1, Math.round(canvas.width * r));
+    c.height = Math.max(1, Math.round(canvas.height * r));
+    const cx = c.getContext('2d');
+    cx.imageSmoothingQuality = 'high';
+    cx.drawImage(canvas, 0, 0, c.width, c.height);
+    (this._small ??= new WeakMap()).set(canvas, { target, canvas: c });
+    return c;
   }
 
   // the piece in its layer's color (made once per piece and color)

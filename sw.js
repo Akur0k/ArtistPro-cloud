@@ -1,6 +1,6 @@
 // own prefix: the computer version (artist-cache-*) may share the origin
 const CACHE_PREFIX = 'artist-cloud-';
-const CACHE_NAME = `${CACHE_PREFIX}v2`;
+const CACHE_NAME = `${CACHE_PREFIX}v3`;
 
 const APP_SHELL = [
   './',

@@ -27,6 +27,9 @@ export function squareToQuad(quad) {
   const D = f * g - d, E = a - c * g, F = c * d - a * f;
   const G = d * h - e * g, H = b * g - a * h, I = a * e - b * d;
   return {
+    affine: g === 0 && h === 0,
+    matrix: { a, b, c, d, e, f, g, h },
+    inverse: { A, B, C, D, E, F, G, H, I },
     map(s, t) {
       const w = g * s + h * t + 1;
       return { x: (a * s + b * t + c) / w, y: (d * s + e * t + f) / w };
@@ -39,14 +42,30 @@ export function squareToQuad(quad) {
 }
 
 // live preview: src (its whole canvas) drawn onto quad in ctx's current
-// coordinates, as n×n cells of two triangles each, every one an affine
-// piece of the mapping — close enough at a glance, and fast
-export function drawWarped(ctx, src, quad, n = 10) {
+// coordinates. A parallelogram is one plain affine draw; a perspective is
+// n×n cells of two triangles, each an affine piece of the mapping — only as
+// many as keep it within a couple of pixels of exact (bendier: more)
+export function drawWarped(ctx, src, quad) {
   const m = squareToQuad(quad);
   const W = src.width, H = src.height;
   // a device pixel in ctx's units: how far each triangle reaches over its neighbours
   const t = ctx.getTransform();
   const px = 1 / Math.sqrt(Math.abs(t.a * t.d - t.b * t.c) || 1);
+  if (m.affine) {
+    const { a, b, c, d, e, f } = m.matrix;
+    ctx.save();
+    ctx.transform(a / W, d / W, b / H, e / H, c, f);
+    ctx.drawImage(src, 0, 0);
+    ctx.restore();
+    return;
+  }
+  // how far the true middle is from where straight interpolation puts it:
+  // the error of n pieces is about that / n²
+  const mid = m.map(0.5, 0.5);
+  const lin = { x: (quad[0].x + quad[1].x + quad[2].x + quad[3].x) / 4, y: (quad[0].y + quad[1].y + quad[2].y + quad[3].y) / 4 };
+  const dev = Math.hypot(mid.x - lin.x, mid.y - lin.y) / px;
+  // (within ~2 px while it's being dragged is plenty — ✓ redraws it exactly)
+  const n = Math.max(1, Math.min(6, Math.ceil(Math.sqrt(dev / 2))));
   const pts = [];
   for (let j = 0; j <= n; j++) {
     for (let i = 0; i <= n; i++) pts.push(m.map(i / n, j / n));
@@ -113,10 +132,13 @@ export function warpCanvas(src, quad) {
   const octx = out.getContext('2d');
   const img = octx.createImageData(W, H);
   const o = img.data;
-  const m = squareToQuad(quad);
+  const { A, B, C, D, E, F, G, H: Hh, I } = squareToQuad(quad).inverse;
   for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
-      const { s, t } = m.unmap(x0 + x + 0.5, y0 + y + 0.5);
+    // s·w, t·w and w at the row's first pixel centre, then one step per pixel
+    const py = y0 + y + 0.5, px0 = x0 + 0.5;
+    let sw0 = A * px0 + B * py + C, tw0 = D * px0 + E * py + F, w0 = G * px0 + Hh * py + I;
+    for (let x = 0; x < W; x++, sw0 += A, tw0 += D, w0 += G) {
+      const s = sw0 / w0, t = tw0 / w0;
       if (!(s > -0.01 && s < 1.01 && t > -0.01 && t < 1.01)) continue;
       // source pixel centres
       const u = s * sw - 0.5, v = t * sh - 0.5;
