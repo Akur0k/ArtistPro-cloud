@@ -1,4 +1,5 @@
 import { dlog, setStateProvider } from './DebugLog.js';
+import { squareToQuad, warpCanvas } from './Warp.js';
 import { Display } from './Display.js';
 import { applyIcons, setIcon } from './Icons.js';
 import { mergeDown } from './MergeLayers.js';
@@ -61,6 +62,7 @@ const selectionBarEl = document.getElementById('selectionBar');
 const copySelBtn = document.getElementById('copySelBtn');
 const flipHSelBtn = document.getElementById('flipHSelBtn');
 const flipVSelBtn = document.getElementById('flipVSelBtn');
+const warpSelBtn = document.getElementById('warpSelBtn');
 const cutSelBtn = document.getElementById('cutSelBtn');
 const tweenBtn = document.getElementById('tweenBtn');
 const makeObjectBtn = document.getElementById('makeObjectBtn');
@@ -585,6 +587,12 @@ async function main() {
   let liveScale = 1; // live, uncommitted two-finger scale
   let liveRotation = 0; // live, uncommitted two-finger rotation
 
+  // transform (the frame with handles): the piece's four corners in
+  // document units — TL, TR, BR, BL — while it's on; null otherwise
+  let warp = null;
+  let warpGrab = null; // one finger: { id, kind: 'corner' | 'edge' | 'move', index, startDoc, startQuad }
+  let warpTwo = null; // two fingers: { ids, a, b (doc points at the start), startQuad }
+
   let cachedCenter = { x: 0, y: 0 };
 
   function applyView() {
@@ -643,9 +651,11 @@ async function main() {
   function updateSelectionBar() {
     const floating = Boolean(floatingFragment);
     const draft = Boolean(selection) && !floating;
-    for (const b of [copySelBtn, cutSelBtn, flipHSelBtn, flipVSelBtn, tweenBtn, makeObjectBtn]) {
-      b.disabled = !floating;
-      b.style.display = floating ? '' : 'none';
+    for (const b of [copySelBtn, cutSelBtn, flipHSelBtn, flipVSelBtn, warpSelBtn, tweenBtn, makeObjectBtn]) {
+      // (while transforming: only ✕ and ✓)
+      const show = floating && !warp && !(b === warpSelBtn && motionEdit);
+      b.disabled = !show;
+      b.style.display = show ? '' : 'none';
     }
     selModeBtn.style.display = draft ? '' : 'none';
     setIcon(selModeBtn, lassoMode === 'sub' ? 'squares-subtract' : 'squares-unite');
@@ -655,8 +665,8 @@ async function main() {
       : 'Следующая обводка добавляет к выделению (нажмите — вычитает)';
     deselectSelBtn.disabled = !(floating || draft);
     cancelSelBtn.disabled = !(floating || draft);
-    deselectSelBtn.title = floating ? 'Готово' : 'Выделить';
-    cancelSelBtn.title = floating ? 'Отмена — вернуть как было' : 'Убрать контур';
+    deselectSelBtn.title = warp ? 'Применить трансформацию' : floating ? 'Готово' : 'Выделить';
+    cancelSelBtn.title = warp ? 'Отменить трансформацию' : floating ? 'Отмена — вернуть как было' : 'Убрать контур';
     pasteBtn.disabled = !clipboard;
     updateMotionBtn();
     tweenBarOkBtn.title = motionEdit ? 'Пересоздать кадры движения' : 'Создать кадры';
@@ -872,6 +882,10 @@ async function main() {
       drawPathEditor();
       return;
     }
+    if (floatingFragment && warp) {
+      drawWarpFrame();
+      return;
+    }
     if (floatingFragment && tweenEdit) drawTweenGuides();
     if (floatingFragment) {
       const dpr = floatingLayer.dpr || 1;
@@ -953,6 +967,7 @@ async function main() {
       return;
     }
     if (!floatingFragment) return;
+    if (warp) applyWarp(); // dropped mid-transform (tool switch, leaving…): as it's shown
     const layer = floatingLayer;
     const dpr = layer.dpr || 1;
     const o = currentOffset();
@@ -989,6 +1004,11 @@ async function main() {
   function cancelSelection() {
     if (motionEdit) {
       exitMotionEdit();
+      return;
+    }
+    if (warp) {
+      // ✕ while transforming: the piece as it was before the frame came up
+      endWarp();
       return;
     }
     stopTweenPlay();
@@ -2006,6 +2026,7 @@ async function main() {
     if (mode === 'poly') abortPolyPoint();
     if (mode === 'objMove') abortObjectGesture();
     if (mode === 'objDraw') abortObjectDraw();
+    if (mode === 'warp') warpGrab = null; // the frame stays as pulled so far
     mode = 'nav';
     dlog('nav-start', { scale: +view.scale.toFixed(3) });
     navIds = Array.from(activePointers.keys()).slice(0, 2);
@@ -2751,6 +2772,146 @@ async function main() {
       : { x: p.x, y: 2 * center.y - p.y })));
     redrawOverlay();
   }
+  // ---- transform: a frame round the piece, its corners pulled anywhere
+  // (perspective), its sides' middles move a whole side (stretch / skew).
+  // ✓ redraws the piece in its new shape, and it floats on as before ----
+
+  // the piece's corners as it's shown now (moved / scaled / turned)
+  function placementQuad() {
+    const dpr = floatingLayer.dpr || 1;
+    const center = fragmentCenterDoc();
+    const o = currentOffset();
+    const s = currentScale();
+    const r = currentRotation();
+    const cos = Math.cos(r), sin = Math.sin(r);
+    const hw = floatingFragment.w / dpr / 2 * s, hh = floatingFragment.h / dpr / 2 * s;
+    return [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sy]) => ({
+      x: center.x + o.x + sx * hw * cos - sy * hh * sin,
+      y: center.y + o.y + sx * hw * sin + sy * hh * cos,
+    }));
+  }
+
+  function enterWarp() {
+    if (!floatingFragment || motionEdit || warp) return;
+    stopTweenPlay();
+    tweenEdit = null;
+    warp = placementQuad();
+    updateSelectionBar();
+    drawSelectionOutline();
+  }
+
+  function endWarp() {
+    warp = null;
+    warpGrab = null;
+    warpTwo = null;
+    if (mode === 'warp' || mode === 'warpTwo') mode = activePointers.size ? 'picked' : 'idle';
+    updateSelectionBar();
+    drawSelectionOutline();
+  }
+
+  // the piece redrawn onto the frame's shape: a new picture, unturned and
+  // unscaled, where the frame is — its outline bent along with it
+  function applyWarp() {
+    const quad = warp;
+    const dpr = floatingLayer.dpr || 1;
+    const frag = floatingFragment;
+    const out = warpCanvas(frag.canvas, quad.map(p => ({ x: p.x * dpr, y: p.y * dpr })));
+    if (selection?.outline) {
+      const m = squareToQuad(quad);
+      const left = frag.x / dpr, top = frag.y / dpr, w = frag.w / dpr, h = frag.h / dpr;
+      selection.outline = selection.outline.map(path => path.map(p => m.map((p.x - left) / w, (p.y - top) / h)));
+    }
+    floatingFragment = { canvas: out.canvas, x: out.x, y: out.y, w: out.canvas.width, h: out.canvas.height };
+    floatingOffset = { x: 0, y: 0 };
+    floatingScale = 1;
+    floatingRotation = 0;
+    dragDelta = { x: 0, y: 0 };
+    liveOffset = { x: 0, y: 0 };
+    liveScale = 1;
+    liveRotation = 0;
+    endWarp();
+  }
+
+  function insideQuad(quad, p) {
+    let inside = false;
+    for (let i = 0, j = 3; i < 4; j = i++) {
+      const a = quad[i], b = quad[j];
+      if ((a.y > p.y) !== (b.y > p.y) && p.x < ((b.x - a.x) * (p.y - a.y)) / (b.y - a.y) + a.x) inside = !inside;
+    }
+    return inside;
+  }
+
+  const edgeMid = (quad, i) => ({ x: (quad[i].x + quad[(i + 1) % 4].x) / 2, y: (quad[i].y + quad[(i + 1) % 4].y) / 2 });
+
+  // a corner, else a side's middle, within reach of the finger; else the
+  // inside moves the whole frame; else nothing
+  function beginWarpGrab(e, docPt) {
+    const reach = 26 / view.scale;
+    const near = p => Math.hypot(p.x - docPt.x, p.y - docPt.y);
+    let kind = null, index = -1, best = reach;
+    warp.forEach((p, i) => {
+      if (near(p) <= best) { kind = 'corner'; index = i; best = near(p); }
+    });
+    if (!kind) {
+      for (let i = 0; i < 4; i++) {
+        const d = near(edgeMid(warp, i));
+        if (d <= best) { kind = 'edge'; index = i; best = d; }
+      }
+    }
+    if (!kind && insideQuad(warp, docPt)) kind = 'move';
+    if (!kind) return; // beside the frame: nothing (✓ / ✕ finish)
+    mode = 'warp';
+    warpGrab = { id: e.pointerId, kind, index, startDoc: docPt, startQuad: warp.map(p => ({ ...p })) };
+  }
+
+  function moveWarpGrab(docPt) {
+    const g = warpGrab;
+    const dx = docPt.x - g.startDoc.x, dy = docPt.y - g.startDoc.y;
+    const moved = i => (g.kind === 'move' || (g.kind === 'corner' && i === g.index) ||
+      (g.kind === 'edge' && (i === g.index || i === (g.index + 1) % 4)));
+    warp = g.startQuad.map((p, i) => (moved(i) ? { x: p.x + dx, y: p.y + dy } : { ...p }));
+    drawSelectionOutline();
+  }
+
+  // two fingers on the frame: move / turn / scale it whole, its shape kept
+  function beginWarpTwo(ids, aDoc, bDoc) {
+    if (mode === 'warp') warpGrab = null;
+    mode = 'warpTwo';
+    warpTwo = { ids, a: aDoc, b: bDoc, startQuad: warp.map(p => ({ ...p })) };
+  }
+
+  function moveWarpTwo() {
+    const [pa, pb] = warpTwo.ids.map(id => activePointers.get(id));
+    if (!pa || !pb) return;
+    const a = docPointFromEvent({ clientX: pa.x, clientY: pa.y });
+    const b = docPointFromEvent({ clientX: pb.x, clientY: pb.y });
+    const { a: a0, b: b0, startQuad } = warpTwo;
+    const d0 = Math.hypot(b0.x - a0.x, b0.y - a0.y) || 1;
+    const s = Math.min(10, Math.max(0.1, Math.hypot(b.x - a.x, b.y - a.y) / d0));
+    const r = Math.atan2(b.y - a.y, b.x - a.x) - Math.atan2(b0.y - a0.y, b0.x - a0.x);
+    const c0 = { x: (a0.x + b0.x) / 2, y: (a0.y + b0.y) / 2 };
+    const c1 = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    const cos = Math.cos(r) * s, sin = Math.sin(r) * s;
+    warp = startQuad.map(p => {
+      const dx = p.x - c0.x, dy = p.y - c0.y;
+      return { x: c1.x + dx * cos - dy * sin, y: c1.y + dx * sin + dy * cos };
+    });
+    drawSelectionOutline();
+  }
+
+  // the piece on the frame's shape, the frame, its eight handles
+  function drawWarpFrame() {
+    overlay.drawFragmentWarped(floatingFragment.canvas, warp, floatingLayer.opacity);
+    overlay.strokeDashedPath(warp, true);
+    for (const p of warp) overlay.dot(p.x, p.y, 9, '#fff', '#2f6fed');
+    for (let i = 0; i < 4; i++) {
+      const m = edgeMid(warp, i);
+      overlay.dot(m.x, m.y, 6.5, '#2f6fed', '#fff');
+    }
+  }
+
+  warpSelBtn.addEventListener('click', enterWarp);
+
   flipHSelBtn.addEventListener('click', () => flipFloating(true));
   flipVSelBtn.addEventListener('click', () => flipFloating(false));
 
@@ -3339,7 +3500,14 @@ async function main() {
     updateHistoryButtons();
   });
 
-  deselectSelBtn.addEventListener('click', () => (floatingFragment ? clearSelection() : confirmSelection()));
+  deselectSelBtn.addEventListener('click', () => {
+    if (warp) {
+      applyWarp();
+      return;
+    }
+    if (floatingFragment) clearSelection();
+    else confirmSelection();
+  });
   cancelSelBtn.addEventListener('click', cancelSelection);
   selModeBtn.addEventListener('click', () => {
     lassoMode = lassoMode === 'sub' ? 'add' : 'sub';
@@ -3455,7 +3623,8 @@ async function main() {
         if (floatingFragment) {
           // placing path points takes every touch; then the tween path's
           // midpoint handle (it can sit over the piece); then the piece
-          if (tweenEdit?.editingPath) beginWaypoint(e, docPt);
+          if (warp) beginWarpGrab(e, docPt);
+          else if (tweenEdit?.editingPath) beginWaypoint(e, docPt);
           else if (nearBendHandle(docPt)) beginBend(e, docPt);
           else if (isInsideSelection(docPt)) beginMoveSelection(e, docPt);
           // touching outside an active selection is ignored — drop it via a button instead
@@ -3479,7 +3648,9 @@ async function main() {
       const obj = activeObject();
       if (obj && !floatingFragment && tool !== 'brush' && tool !== 'eraser' && (objectHit(obj, aDoc) || objectHit(obj, bDoc))) {
         beginObjectTransform(ids);
-      } else if (floatingFragment && !tweenEdit?.editingPath && (isInsideSelection(aDoc) || isInsideSelection(bDoc))) {
+      } else if (warp && (insideQuad(warp, aDoc) || insideQuad(warp, bDoc))) {
+        beginWarpTwo(ids, aDoc, bDoc);
+      } else if (floatingFragment && !warp && !tweenEdit?.editingPath && (isInsideSelection(aDoc) || isInsideSelection(bDoc))) {
         beginTransformSelection();
       } else {
         beginNav();
@@ -3493,6 +3664,14 @@ async function main() {
     if (e.pointerId === holdPointerId && holdStart && Math.hypot(e.clientX - holdStart.x, e.clientY - holdStart.y) > HOLD_SLOP) cancelHold();
     if (mode === 'picked') return;
 
+    if (mode === 'warp' && warpGrab && e.pointerId === warpGrab.id) {
+      moveWarpGrab(docPointFromEvent(e));
+      return;
+    }
+    if (mode === 'warpTwo') {
+      moveWarpTwo();
+      return;
+    }
     if (mode === 'draw' && e.pointerId === drawPointerId && strokeRenderer) {
       // every sample since the last event, not just the latest — a fast
       // stroke otherwise loses most of its shape between frames
@@ -3562,6 +3741,13 @@ async function main() {
     } else if (mode === 'moveSel' && e.pointerId === moveSelPointerId) {
       finishMoveSelection(docPointFromEvent(e));
       mode = 'idle';
+    } else if (mode === 'warp' && e.pointerId === warpGrab?.id) {
+      warpGrab = null;
+      mode = 'idle';
+    } else if (mode === 'warpTwo') {
+      // the shape so far stays; the other finger does nothing more
+      warpTwo = null;
+      mode = activePointers.size ? 'picked' : 'idle';
     } else if (mode === 'bend' && e.pointerId === bendPointerId) {
       bendPointerId = null;
       mode = 'idle';

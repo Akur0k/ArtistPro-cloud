@@ -2,6 +2,8 @@
 // the picture (see Display.js) in document coordinates under the current
 // view. It's a plain picture: whoever drew it redraws it after the view
 // moves (main.js: redrawOverlay).
+import { drawWarped } from './Warp.js';
+
 export class SelectionOverlay {
   constructor(display) {
     this.display = display;
@@ -117,6 +119,15 @@ export class SelectionOverlay {
     ctx.rotate(rotation);
     ctx.scale(scale, scale);
     ctx.drawImage(this._tintedCopy(fragCanvas), -w / 2, -h / 2, w, h);
+    ctx.restore();
+  }
+
+  // the piece pulled onto a four-cornered shape (quad: TL, TR, BR, BL)
+  drawFragmentWarped(fragCanvas, quad, alpha = 1) {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    drawWarped(ctx, this._tintedCopy(fragCanvas), quad);
     ctx.restore();
   }
 

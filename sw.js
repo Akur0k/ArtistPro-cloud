@@ -1,6 +1,6 @@
 // own prefix: the computer version (artist-cache-*) may share the origin
 const CACHE_PREFIX = 'artist-cloud-';
-const CACHE_NAME = `${CACHE_PREFIX}v1`;
+const CACHE_NAME = `${CACHE_PREFIX}v2`;
 
 const APP_SHELL = [
   './',
@@ -22,6 +22,7 @@ const APP_SHELL = [
   './js/NewCanvasDialog.js',
   './js/floodFill.js',
   './js/Selection.js',
+  './js/Warp.js',
   './js/SelectionOverlay.js',
   './js/Storage.js',
   './js/HomeScreen.js',
